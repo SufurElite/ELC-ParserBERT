@@ -19,6 +19,6 @@ def preprocess(f):
 
 
 with open("../data/babylm_data/babylm_100M/aochildes.train") as f:
-    with open("../data/processed/aochildes.txt", 'w') as g:
+    with open("../data/processed/aochildes.txt", "w") as g:
         for line in preprocess(f):
             g.write(f"{line}\n")

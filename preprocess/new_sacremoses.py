@@ -59,74 +59,74 @@ class MosesDetokenizer(object):
     ]
 
     FINNISH_MORPHSET_1 = [
-        u"N",
-        u"n",
-        u"A",
-        u"a",
-        u"\xc4",
-        u"\xe4",
-        u"ssa",
-        u"Ssa",
-        u"ss\xe4",
-        u"Ss\xe4",
-        u"sta",
-        u"st\xe4",
-        u"Sta",
-        u"St\xe4",
-        u"hun",
-        u"Hun",
-        u"hyn",
-        u"Hyn",
-        u"han",
-        u"Han",
-        u"h\xe4n",
-        u"H\xe4n",
-        u"h\xf6n",
-        u"H\xf6n",
-        u"un",
-        u"Un",
-        u"yn",
-        u"Yn",
-        u"an",
-        u"An",
-        u"\xe4n",
-        u"\xc4n",
-        u"\xf6n",
-        u"\xd6n",
-        u"seen",
-        u"Seen",
-        u"lla",
-        u"Lla",
-        u"ll\xe4",
-        u"Ll\xe4",
-        u"lta",
-        u"Lta",
-        u"lt\xe4",
-        u"Lt\xe4",
-        u"lle",
-        u"Lle",
-        u"ksi",
-        u"Ksi",
-        u"kse",
-        u"Kse",
-        u"tta",
-        u"Tta",
-        u"ine",
-        u"Ine",
+        "N",
+        "n",
+        "A",
+        "a",
+        "\xc4",
+        "\xe4",
+        "ssa",
+        "Ssa",
+        "ss\xe4",
+        "Ss\xe4",
+        "sta",
+        "st\xe4",
+        "Sta",
+        "St\xe4",
+        "hun",
+        "Hun",
+        "hyn",
+        "Hyn",
+        "han",
+        "Han",
+        "h\xe4n",
+        "H\xe4n",
+        "h\xf6n",
+        "H\xf6n",
+        "un",
+        "Un",
+        "yn",
+        "Yn",
+        "an",
+        "An",
+        "\xe4n",
+        "\xc4n",
+        "\xf6n",
+        "\xd6n",
+        "seen",
+        "Seen",
+        "lla",
+        "Lla",
+        "ll\xe4",
+        "Ll\xe4",
+        "lta",
+        "Lta",
+        "lt\xe4",
+        "Lt\xe4",
+        "lle",
+        "Lle",
+        "ksi",
+        "Ksi",
+        "kse",
+        "Kse",
+        "tta",
+        "Tta",
+        "ine",
+        "Ine",
     ]
 
-    FINNISH_MORPHSET_2 = [u"ni", u"si", u"mme", u"nne", u"nsa"]
+    FINNISH_MORPHSET_2 = ["ni", "si", "mme", "nne", "nsa"]
 
     FINNISH_MORPHSET_3 = [
-        u"ko",
-        u"k\xf6",
-        u"han",
-        u"h\xe4n",
-        u"pa",
-        u"p\xe4",
-        u"kaan",
-        u"k\xe4\xe4n",
-        u"kin",
+        "ko",
+        "k\xf6",
+        "han",
+        "h\xe4n",
+        "pa",
+        "p\xe4",
+        "kaan",
+        "k\xe4\xe4n",
+        "kin",
     ]
 
     FINNISH_REGEX = r"^({})({})?({})$".format(
@@ -162,7 +162,7 @@ class MosesDetokenizer(object):
             # Unescape the XML symbols.
             text = self.unescape_xml(text)
         # Keep track of no. of quotation marks.
-        quote_counts = {u"'": 0, u'"': 0, u"``": 0, u"`": 0, u"''": 0}
+        quote_counts = {"'": 0, '"': 0, "``": 0, "`": 0, "''": 0}
 
         # The *prepend_space* variable is used to control the "effects" of
         # detokenization as the function loops through the list of tokens and
@@ -248,17 +248,17 @@ class MosesDetokenizer(object):
                     normalized_quo = '"'
                 quote_counts[normalized_quo] = quote_counts.get(normalized_quo, 0)
 
-                if self.lang == "cs" and token == u"„":
+                if self.lang == "cs" and token == "„":
                     quote_counts[normalized_quo] = 0
-                if self.lang == "cs" and token == u"“":
+                if self.lang == "cs" and token == "“":
                     quote_counts[normalized_quo] = 1
 
                 # change from here
                 if (
                     self.lang == "en"
-                    and token == u"'"
+                    and token == "'"
                     and i > 0
-                    and tokens[i - 1].endswith('s')
+                    and tokens[i - 1].endswith("s")
                     and tokens[i - 1][0].isupper()
                 ):
                     # Left shift on single quote for possessives ending
@@ -267,11 +267,11 @@ class MosesDetokenizer(object):
                     prepend_space = " "
                 elif (
                     self.lang == "en"
-                    and token == u"'"
+                    and token == "'"
                     and i > 0
                     and i + 1 < len(tokens)
                     and re.search(r"[{}]".format(self.IsAlpha), tokens[i - 1])
-                    and tokens[i + 1] == 's'
+                    and tokens[i + 1] == "s"
                 ):
                     # Left shift on single quote for possessives
                     # e.g. "The Hagrid's house"
@@ -281,9 +281,9 @@ class MosesDetokenizer(object):
                 elif quote_counts[normalized_quo] % 2 == 0:
                     if (
                         self.lang == "en"
-                        and token == u"'"
+                        and token == "'"
                         and i > 0
-                        and tokens[i - 1].endswith('s')
+                        and tokens[i - 1].endswith("s")
                     ):
                         # Left shift on single quote for possessives ending
                         # in "s", e.g. "The Jones' house"

@@ -162,7 +162,10 @@ def parse_arguments():
         "--wandb_entity", type=str, default=None, help="Your WANDB username/entity."
     )
     parser.add_argument(
-        "--wandb_name", type=str, default="ELC BERT Weighted out", help="WANDB run name."
+        "--wandb_name",
+        type=str,
+        default="ELC BERT Weighted out",
+        help="WANDB run name.",
     )
     parser.add_argument(
         "--wandb_project", type=str, default="ELC BERT", help="WANDB project name."
