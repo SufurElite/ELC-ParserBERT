@@ -1,0 +1,26 @@
+{
+  "architectures": [
+    "LtgBertForMaskedLM"
+  ],
+  "attention_probs_dropout_prob": 0.1,
+  "auto_map": {
+    "AutoConfig": "configuration_ltgbert.LtgBertConfig",
+    "AutoModelForMaskedLM": "modeling_ltgbert.LtgBertForMaskedLM",
+    "AutoModelForSequenceClassification": "modeling_ltgbert.LtgBertForSequenceClassification"
+  },
+  "classifier_dropout": 0.2,
+  "hidden_dropout_prob": 0.1,
+  "hidden_size": 384,
+  "intermediate_size": 1024,
+  "layer_norm_eps": 1e-07,
+  "max_position_embeddings": 512,
+  "model_type": "ltgbert",
+  "num_attention_heads": 6,
+  "num_hidden_layers": 12,
+  "output_all_encoded_layers": true,
+  "pad_token_id": 3,
+  "position_bucket_size": 32,
+  "torch_dtype": "float32",
+  "transformers_version": "4.26.0",
+  "vocab_size": 16384
+}

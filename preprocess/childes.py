@@ -27,7 +27,7 @@ def preprocess(f):
         prev_line = line
 
 
-with open("../../../data/text_data/train_10M/switchboard.train") as f:
-    with open("../../../data/processed/switchboard.txt", "w") as g:
+with open("../../../data/text_data/train_10M/childes.train") as f:
+    with open("../../../data/processed/childes.txt", "w") as g:
         for line in preprocess(f):
             g.write(f"{line}\n")

@@ -36,7 +36,7 @@ def preprocess(f):
         prev_line = line
 
 
-with open("../data/babylm_data/babylm_100M/open_subtitles.train") as f:
-    with open("../data/processed/open_subtitles.txt", "w") as g:
+with open("../../../data/text_data/train_10M/open_subtitles.train") as f:
+    with open("../../../data/processed/open_subtitles.txt", "w") as g:
         for line in preprocess(f):
             g.write(f"{line}\n")

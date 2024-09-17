@@ -26,7 +26,7 @@ def preprocess(f):
         prev_line = line
 
 
-with open("../data/babylm_data/babylm_100M/bnc_spoken.train") as f:
-    with open("../data/processed/bnc_spoken.txt", "w") as g:
+with open("../../../data/text_data/train_10M/bnc_spoken.train") as f:
+    with open("../../../data/processed/bnc_spoken.txt", "w") as g:
         for line in preprocess(f):
             g.write(f"{line}\n")
