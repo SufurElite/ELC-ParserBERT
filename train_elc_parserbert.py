@@ -17,7 +17,7 @@ from tokenizers import Tokenizer
 from pre_training.lamb import Lamb
 from pre_training.config import BertConfig
 
-from models.model_elc_bert_weighted_output import Bert
+from models.model_elc_parserbert import ParserBERT
 
 from pre_training.utils import (
     cosine_schedule_with_warmup,
@@ -28,10 +28,6 @@ from pre_training.utils import (
 )
 from pre_training.dataset import Dataset
 
-# Assuming being run on a SLURM system (remove "if" if not the case)
-if int(os.environ["SLURM_PROCID"]) == 0:
-    import wandb
-
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -39,26 +35,26 @@ def parse_arguments():
     # Required parameters
     parser.add_argument(
         "--input_path",
-        default="data/processed/cached_{sequence_length}.txt",
+        default="../data/processed/cached_{sequence_length}.txt",
         type=str,
         help="The input data dir. Should be the cached text file.",
     )
     parser.add_argument(
         "--config_file",
-        default="configs/base.json",
+        default="../configs/base.json",
         type=str,
         help="The BERT model config",
     )
     parser.add_argument(
         "--output_dir",
-        default="checkpoints/elc_bert_weighted_output",
+        default="../checkpoints/elc_bert_base",
         type=str,
         help="The output directory where the model checkpoints \
             will be written.",
     )
     parser.add_argument(
         "--vocab_path",
-        default="tokenizer.json",
+        default="../tokenizer.json",
         type=str,
         help="The vocabulary the BERT model will train on.",
     )
@@ -99,13 +95,13 @@ def parse_arguments():
     )
     parser.add_argument(
         "--learning_rate",
-        default=1e-2,
+        default=5e-3,
         type=float,
         help="The initial learning rate for Adam.",
     )
     parser.add_argument(
         "--max_steps",
-        default=31250 // 2,
+        default=31250,
         type=int,
         help="Total number of training steps to perform.",
     )
@@ -124,6 +120,11 @@ def parse_arguments():
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="random seed for initialization"
+    )
+    parser.add_argument(
+        "--shuffle",
+        action="store_true",
+        help="Shuffle the input data (otherwise it will present it order of complexity)",
     )
     parser.add_argument(
         "--log_freq", type=int, default=10, help="frequency of logging loss."
@@ -158,18 +159,6 @@ def parse_arguments():
         type=float,
         help="The label smoothing to apply to apply to cross-entropy.",
     )
-    parser.add_argument(
-        "--wandb_entity", type=str, default=None, help="Your WANDB username/entity."
-    )
-    parser.add_argument(
-        "--wandb_name",
-        type=str,
-        default="ELC BERT Weighted out",
-        help="WANDB run name.",
-    )
-    parser.add_argument(
-        "--wandb_project", type=str, default="ELC BERT", help="WANDB project name."
-    )
     args = parser.parse_args()
 
     return args
@@ -177,35 +166,14 @@ def parse_arguments():
 
 # FIXME Add type hint
 # TODO Add docstring
-# TODO Flake8 check
 
 
 @torch.no_grad()
 def log_parameter_histograms(model, step):
     for name, param in model.named_parameters():
-        wandb.log(
-            {
-                f"parameters/norm_{name}": torch.linalg.norm(param.data).cpu().item(),
-                f"parameters/std_{name}": param.data.std().cpu().item(),
-            },
-            step=step,
-            commit=False,
-        )
-        if param.requires_grad and param.grad is not None:
-            wandb.log(
-                {
-                    f"gradients/norm_{name}": torch.linalg.norm(param.grad)
-                    .cpu()
-                    .item(),
-                    f"gradients/std_{name}": param.grad.std().cpu().item(),
-                },
-                step=step,
-                commit=False,
-            )
         if "prev_layer_weights" in name:
             d = F.softmax(param.data.cpu(), dim=-1).numpy()
             param_dict = {f"layer_weights/{name}_{i}": d[i] for i in range(len(d))}
-            wandb.log(param_dict, step=step, commit=False)
 
 
 def setup_training(args):
@@ -213,20 +181,20 @@ def setup_training(args):
     args.n_gpu = torch.cuda.device_count()
 
     world_size = int(os.environ["WORLD_SIZE"])
-    rank = int(os.environ["SLURM_PROCID"])
+    rank = 0  # int(os.environ["SLURM_PROCID"])
     gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
     assert gpus_per_node == torch.cuda.device_count()
     print(
         f"Hello from rank {rank} of {world_size} on {gethostname()} where \
-        there are {gpus_per_node} allocated GPUs per node.",
+            there are {gpus_per_node} allocated GPUs per node.",
         flush=True,
     )
 
     seed_everything(args.seed + rank)
-
     torch.distributed.init_process_group(
-        backend="nccl", rank=rank, world_size=world_size
+        backend="nccl", init_method="tcp://localhost:23456", world_size=1, rank=0
     )
+
     if rank == 0:
         print(f"Group initialized? {torch.distributed.is_initialized()}", flush=True)
 
@@ -242,43 +210,31 @@ def setup_training(args):
     if is_main_process():
         tok_per_batch = args.batch_size * args.seq_length
         print(
-            f"Training for {args.max_steps:,} steps with \
-                {get_world_size()} GPUs"
+            f"Training for {args.max_steps:,} steps with {get_world_size()} \
+                GPUs"
         )
         print(
             f"In total, the model will be trained on 'steps'\
-                ({args.max_steps:,}) x 'GPUs'({get_world_size()}) x \
-                'batch_size'({args.batch_size:,}) x 'seq_len'\
-                ({args.seq_length:,}) = \
-                {args.max_steps * get_world_size() * tok_per_batch:,} \
-                subword instances"
+        ({args.max_steps:,}) x 'GPUs'({get_world_size()}) x \
+        'batch_size'({args.batch_size:,}) x 'seq_len'\
+        ({args.seq_length:,}) = \
+        {args.max_steps * get_world_size() * tok_per_batch:,} \
+        subword instances"
         )
 
     args.device_max_steps = args.max_steps
 
-    if is_main_process():
-        wandb.init(
-            name=args.wandb_name,
-            config=args,
-            id=args.wandb_id,
-            project=args.wandb_project,
-            entity=args.wandb_entity,
-            resume="auto",
-            allow_val_change=True,
-            reinit=True,
-        )
-
     return device, local_rank
 
 
-def prepare_model_and_optimizer(args, device, local_rank, checkpoint):
+def prepare_model_and_optimizer(args, pad_index, device, local_rank, checkpoint):
     config = BertConfig(args.config_file)
-    model = Bert(config, args.activation_checkpointing)
+    model = ParserBERT(
+        config, pad=pad_index, activation_checkpointing=args.activation_checkpointing
+    )
 
     if is_main_process():
         n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        wandb.config.update(config.to_dict())
-        wandb.config.update({"n_params": n_params})
         print(model)
         print(f"NUMBER OF PARAMETERS: {n_params}\n", flush=True)
 
@@ -378,9 +334,8 @@ def training_epoch(
     device,
     max_local_steps,
 ):
-    train_dataloader = create_train_dataloader(
-        data, args, global_step, args.seed + get_rank() + epoch * get_world_size()
-    )
+    seed = args.seed + get_rank() + epoch * get_world_size()
+    train_dataloader = create_train_dataloader(data, args, global_step, seed)
 
     model = model.train()
     optimizer.zero_grad(set_to_none=True)
@@ -389,11 +344,13 @@ def training_epoch(
     avg_accuracy = 0
 
     if is_main_process():
+        current_step = global_step * args.gradient_accumulation
+        max_steps = args.device_max_steps * args.gradient_accumulation
         train_iter = tqdm(
             train_dataloader,
             desc="Train iteration",
-            initial=global_step * args.gradient_accumulation,
-            total=args.device_max_steps * args.gradient_accumulation,
+            initial=current_step,
+            total=max_steps,
         )
     else:
         train_iter = train_dataloader
@@ -410,12 +367,10 @@ def training_epoch(
 
             target_ids = target_ids.flatten()
             target_ids = target_ids[target_ids != -100]
-            loss = (
-                F.cross_entropy(
-                    prediction, target_ids, label_smoothing=args.label_smoothing
-                )
-                / args.gradient_accumulation
+            loss = F.cross_entropy(
+                prediction, target_ids, label_smoothing=args.label_smoothing
             )
+            loss /= args.gradient_accumulation
             total_loss += loss.item()
 
         with torch.no_grad():
@@ -441,25 +396,13 @@ def training_epoch(
             if is_main_process():
                 train_iter.set_postfix_str(
                     f"loss: {total_loss:.2f}, \
-                        accuracy: {avg_accuracy * 100.0:.2f}, \
-                        grad_norm: {grad_norm:.2f}, \
-                        lr: {optimizer.param_groups[0]['lr']:.5f}"
+                                    accuracy: {avg_accuracy * 100.0:.2f}, \
+                                    grad_norm: {grad_norm:.2f}, \
+                                    lr: {optimizer.param_groups[0]['lr']:.5f}"
                 )
 
                 if global_step % 100 == 0:
                     log_parameter_histograms(model, global_step)
-
-                wandb.log(
-                    {
-                        "epoch": epoch,
-                        "train/loss": total_loss,
-                        "train/accuracy": avg_accuracy * 100.0,
-                        "stats/learning_rate": optimizer.param_groups[0]["lr"],
-                        "stats/grad_norm": grad_norm,
-                        "stats/seq_length": data.seq_length,
-                    },
-                    step=global_step,
-                )
 
                 total_loss = 0
                 avg_accuracy = 0
@@ -481,9 +424,11 @@ def training_epoch(
 
 
 def save(model, optimizer, grad_scaler, scheduler, global_step, epoch, args):
-    checkpoint_path = f"{args.output_dir}/model.bin"
+    model_path = f"{args.output_dir}/model.bin"
+    checkpoint_path = f"{args.output_dir}/checkpoints/model.bin"
     if is_main_process():
         model_to_save = model.module if hasattr(model, "module") else model
+        torch.save(model_to_save.state_dict(), model_path)
         torch.save(
             {
                 "model": model_to_save.state_dict(),
@@ -497,7 +442,7 @@ def save(model, optimizer, grad_scaler, scheduler, global_step, epoch, args):
             checkpoint_path,
         )
 
-    return checkpoint_path
+    return model_path
 
 
 def load_dataset(args, tokenizer, device):
@@ -538,9 +483,9 @@ def create_train_dataloader(data, args, global_step, seed):
     )
     train_dataloader = DataLoader(
         data,
-        shuffle=True,
+        shuffle=args.shuffle,
         batch_size=batch_size,
-        num_workers=7 - 1,
+        num_workers=2,
         generator=torch.Generator().manual_seed(seed),
         drop_last=True,
         pin_memory=True,
@@ -563,14 +508,12 @@ if __name__ == "__main__":
         args = argparse.Namespace(**args)
     else:
         checkpoint, initial_epoch, global_step = None, 0, 0
-        args.wandb_id = (
-            wandb.util.generate_id() if int(os.environ["SLURM_PROCID"]) == 0 else 0
-        )
 
     tokenizer = Tokenizer.from_file(args.vocab_path)
     device, local_rank = setup_training(args)
+    pad_index = tokenizer.token_to_id("[PAD]")
     model, config, optimizer, scheduler, grad_scaler = prepare_model_and_optimizer(
-        args, device, local_rank, checkpoint
+        args, pad_index, device, local_rank, checkpoint
     )
     train_data, min_length = load_dataset(args, tokenizer, device)
 

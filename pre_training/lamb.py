@@ -23,44 +23,46 @@ class Lamb(torch.optim.Optimizer):
             loss = closure()
 
         for group in self.param_groups:
-            for p in group['params']:
+            for p in group["params"]:
                 if p.grad is None:
                     continue
                 grad = p.grad.data
                 if grad.is_sparse:
-                    raise RuntimeError('Lamb does not support sparse gradients, consider SparseAdam instad.')
+                    raise RuntimeError(
+                        "Lamb does not support sparse gradients, consider SparseAdam instad."
+                    )
 
                 state = self.state[p]
 
                 # State initialization
                 if len(state) == 0:
-                    state['step'] = 0
+                    state["step"] = 0
                     # Exponential moving average of gradient values
-                    state['exp_avg'] = torch.zeros_like(p.data)
+                    state["exp_avg"] = torch.zeros_like(p.data)
                     # Exponential moving average of squared gradient values
-                    state['exp_avg_sq'] = torch.zeros_like(p.data)
+                    state["exp_avg_sq"] = torch.zeros_like(p.data)
 
-                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
-                beta1, beta2 = group['betas']
+                exp_avg, exp_avg_sq = state["exp_avg"], state["exp_avg_sq"]
+                beta1, beta2 = group["betas"]
 
-                state['step'] += 1
+                state["step"] += 1
 
                 # Decay the first and second moment running average coefficient
                 exp_avg.mul_(beta1).add_(grad, alpha=1 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1 - beta2)
 
-                bias_correction1 = 1 - beta1 ** state['step']
-                bias_correction2 = 1 - beta2 ** state['step']
+                bias_correction1 = 1 - beta1 ** state["step"]
+                bias_correction2 = 1 - beta2 ** state["step"]
 
                 m_t = exp_avg / bias_correction1
                 v_t = exp_avg_sq / bias_correction2
                 torch.sqrt_(v_t)
 
-                update = m_t / (v_t + group['eps'])
+                update = m_t / (v_t + group["eps"])
 
                 ratio = 1.0
-                if group['weight_decay'] > 0:
-                    update.add_(p.data, alpha=group['weight_decay'])
+                if group["weight_decay"] > 0:
+                    update.add_(p.data, alpha=group["weight_decay"])
 
                     g_norm = torch.norm(update.flatten())
                     w_norm = torch.norm(p.data.flatten())
@@ -68,6 +70,6 @@ class Lamb(torch.optim.Optimizer):
                     if w_norm > 0.0 and g_norm > 0.0:
                         ratio = w_norm / g_norm
 
-                p.data.add_(update, alpha=-group['lr'] * ratio)
+                p.data.add_(update, alpha=-group["lr"] * ratio)
 
         return loss
