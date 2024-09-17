@@ -328,7 +328,7 @@ class ParserNetwork(nn.Module):
 
         distance, height = self.parse(x, embeddings)
         att_mask, cibling, head, block = self.generate_mask(x, distance, height)
-        
+
         return att_mask, cibling, head, block
 
 

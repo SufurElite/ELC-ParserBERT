@@ -62,12 +62,14 @@ for document in tqdm(documents):
         subwords = [tokenizer.id_to_token(token_id) for token_id in segment]
         output.append(" ".join(subwords))
 
+
 def assign_score(token_str):
     tokens = token_str.split(" ")
     ids = [tokenizer.token_to_id(token) for token in tokens]
     return textstat.flesch_reading_ease(tokenizer.decode(ids))
 
-ranked_segments = [(segment,assign_score(segment)) for segment in output]
+
+ranked_segments = [(segment, assign_score(segment)) for segment in output]
 
 # sort the decoded segments by how difficult they are to read
 ranked_segments = sorted(ranked_segments, key=itemgetter(1), reverse=True)
