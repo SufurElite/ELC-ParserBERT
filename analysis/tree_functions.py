@@ -121,8 +121,8 @@ def model_to_tree_output(input: str, tokenizer, model):
     space_char = tokenizer.convert_ids_to_tokens(tokenizer(" ").input_ids)[0]
     subwords = tokenizer.convert_ids_to_tokens(tokenizer(input).input_ids)
     tree_values, _ = model(tokenizer.encode(input, return_tensors="pt"))
-    heights = tree_values["height"]
-    distances = tree_values["distance"]
+    heights = tree_values["height"][0]
+    distances = tree_values["distance"][0]
     tree, _, _, _ = build_tree_whole_words(
         subwords, distances, heights, space_char=space_char
     )
