@@ -36,13 +36,14 @@ def get_difference(
     model_two: str,
     task: str,
     subtask: str,
+    eval_loc: str = EVALUATION_LOCATION,
 ):
     """Given two models and a particular task, identify the model with different predictions"""
 
     full_task_name = f"{task}_{subtask}.jsonl"
 
-    model_one_path = os.path.join(EVALUATION_LOCATION, task, model_one, full_task_name)
-    model_two_path = os.path.join(EVALUATION_LOCATION, task, model_two, full_task_name)
+    model_one_path = os.path.join(eval_loc, task, model_one, full_task_name)
+    model_two_path = os.path.join(eval_loc, task, model_two, full_task_name)
 
     model_one_results, model_two_results = load_model_results(
         model_one_path, model_two_path
@@ -168,29 +169,7 @@ def get_difference(
         if targetDiff not in targetDiffs:
             targetDiffs[targetDiff] = [0, 0, 0, 0]
         targetDiffs[targetDiff][3] += 1
-    """
-    conceptsKeys = set(concepts.keys())
-    contextTypesKeys = set(contextTypes.keys())
-    contextDiffsKeys = set(contextDiffs.keys())
-    targetDiffsKeys = set(targetDiffs.keys())
-    for value in model_one_results:
-        doc = value["doc"]
-        conceptA = doc["ConceptA"]
-        conceptB = doc["ConceptB"]
-        contextType = doc["ContextType"]
-        contextDiff = doc["ContextDiff"]
-        targetDiff = doc["TargetDiff"]
-        if conceptA in conceptsKeys:
-            concepts[conceptA][2] += 1
-        if conceptB in conceptsKeys:
-            concepts[conceptB][2] += 1
-        if contextType in contextTypesKeys:
-            contextTypes[contextType][2] += 1
-        if contextDiff in contextDiffsKeys:
-            contextDiffs[contextDiff][2] += 1
-        if targetDiff in targetDiffsKeys:
-            targetDiffs[targetDiff][2] += 1
-    """
+
     significant_subtasks = []
     sys.stdout.write(f"{'='*120}\n\n")
     sys.stdout.write("Concepts:\n")
@@ -386,13 +365,17 @@ def calculate_mcnemar(model_one_path, model_two_path, debug: bool = True):
 
 
 def compare_all_model_results(
-    model_one: str, model_two: str, task_name: str = "ewok", quiet: bool = False
+    model_one: str,
+    model_two: str,
+    task_name: str = "ewok",
+    eval_loc: str = EVALUATION_LOCATION,
+    quiet: bool = False,
 ):
     """
     Calculate all the McNemar tables for two models and determine which tasks are significant
     """
-    model_one_path = os.path.join(EVALUATION_LOCATION, task_name, model_one)
-    model_two_path = os.path.join(EVALUATION_LOCATION, task_name, model_two)
+    model_one_path = os.path.join(eval_loc, task_name, model_one)
+    model_two_path = os.path.join(eval_loc, task_name, model_two)
     assert os.path.isdir(model_one_path), f"Path {model_one_path} does not exist"
     assert os.path.isdir(model_two_path), f"Path {model_two_path} does not exist"
 
