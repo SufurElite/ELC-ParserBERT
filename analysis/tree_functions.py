@@ -3,6 +3,8 @@ Tree functions helper implemented based on the algorithms from the StructFormer 
 """
 from nltk.tree import Tree
 from typing import List
+import numpy as np
+import sys
 
 
 def build_tree_whole_words(
@@ -10,6 +12,7 @@ def build_tree_whole_words(
     distances: List,
     heights: List,
     space_char: str = "Ġ",
+    modified: bool = False,
     debug: bool = False,
 ):
     """
@@ -65,7 +68,62 @@ def build_tree_whole_words(
 
     assert len(new_distances) == len(words) and len(words) == len(new_heights)
 
-    return build_tree(words, new_distances, new_heights, debug)
+    if modified:
+        return build_tree_modified(words, new_distances, new_heights, debug)
+    else:
+        return build_tree(words, new_distances, new_heights, debug)
+
+
+def build_tree_modified(
+    words: List, distances: List, heights: List, debug: bool = False
+):
+    """
+    params:
+        words
+        distances
+        heights
+        debug
+    """
+    # by default t = empty tree
+    empty_tree = Tree.fromstring("()")
+    t = empty_tree
+    dependency_graph = []
+    parent = None
+    height = None
+    if debug:
+        print("distances: ", distances)
+        print("heights: ", heights)
+        print("words: ", words)
+        print("\n\n")
+    if len(distances) == 0 and len(words) == 0 and len(heights) == 0:
+        dependency_graph = []
+        height = -np.inf
+    else:
+        # get the index of the next largest distance
+        max_value = max(distances)
+        max_index = distances.index(max_value)
+
+        Tree_left, dependency_left, parent_left, height_left = build_tree_modified(
+            words[:max_index], distances[:max_index], heights[:max_index], debug
+        )
+        Tree_right, dependency_right, parent_right, height_right = build_tree_modified(
+            words[max_index + 1 :],
+            distances[max_index + 1 :],
+            heights[max_index + 1 :],
+            debug,
+        )
+        dependency_graph = dependency_left + dependency_right
+        t = Tree(words[max_index], [Tree_left, Tree_right])
+        if height_left > height_right:
+            height = height_left
+            parent = parent_left
+            dependency_graph.append([parent_left, parent_right])
+        else:
+            parent = parent_right
+            height = height_right
+            dependency_graph.append([parent_right, parent_left])
+
+    return t, dependency_graph, parent, height
 
 
 def build_tree(words: List, distances: List, heights: List, debug: bool = False):
@@ -75,6 +133,7 @@ def build_tree(words: List, distances: List, heights: List, debug: bool = False)
         distances
         heights
         debug
+    Derived from the original algorithm
     """
     t = None
     dependency_graph = []
